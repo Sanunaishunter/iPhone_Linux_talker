@@ -34,6 +34,21 @@ function fmtTime(ts) {
     return GLib.DateTime.new_from_unix_local(Math.floor(ts)).format('%H:%M');
 }
 
+function acctSummary(account) {
+    if (account.error)
+        return `記帳失敗：${account.error}`;
+    const parts = [];
+    if (account.recorded)
+        parts.push(`✅ 已記帳 ${account.recorded} 筆`);
+    if (account.pending)
+        parts.push(`⚠️ 待審核 ${account.pending} 筆`);
+    if (account.memos)
+        parts.push(`📝 備忘 ${account.memos} 筆`);
+    if (account.skipped)
+        parts.push(`⏭ 重複已略過 ${account.skipped} 筆`);
+    return parts.length ? parts.join('、') : '沒有可記錄的項目';
+}
+
 /** Talks to the local service: JSON requests plus a server-sent-events stream with auto-reconnect. */
 class TalkerClient {
     constructor(handlers) {
@@ -221,9 +236,14 @@ class Toast {
 
     show(msg, seconds) {
         this._seconds = seconds;
-        this._title.text = `${msg.from} -> ${msg.to}`;
-        const t = msg.text.length > TOAST_MAX_CHARS ? `${msg.text.slice(0, TOAST_MAX_CHARS)}…` : msg.text;
-        this._body.text = t;
+        if (msg.account) {
+            this._title.text = '記帳';
+            this._body.text = acctSummary(msg.account);
+        } else {
+            this._title.text = `${msg.from} -> ${msg.to}`;
+            const t = msg.text.length > TOAST_MAX_CHARS ? `${msg.text.slice(0, TOAST_MAX_CHARS)}…` : msg.text;
+            this._body.text = t;
+        }
 
         const mon = Main.layoutManager.primaryMonitor;
         const width = Math.min(Math.round(mon.width * 0.9), 540);
@@ -290,6 +310,8 @@ class TalkerIndicator extends PanelMenu.Button {
         this.add_child(this._icon);
         this._updateIcon();
 
+        this.menu.actor.add_style_class_name('talker-menu');
+
         this._buildPanel();
         this._buildSettings();
 
@@ -311,12 +333,18 @@ class TalkerIndicator extends PanelMenu.Button {
         const header = new St.BoxLayout({style_class: 'talker-header'});
         this._status = new St.Label({style_class: 'talker-status', text: '… connecting', x_expand: true,
             y_align: Clutter.ActorAlign.CENTER});
+        this._acctBtn = new St.Button({label: '記帳', style_class: 'button talker-acct-btn', can_focus: true});
+        this._acctBtn.connect('clicked', () => {
+            const on = !!this._client.state.settings.accounting_mode;
+            this._saveSettings({accounting_mode: !on});
+        });
         const web = new St.Button({label: 'web', style_class: 'button talker-open-web', can_focus: true});
         web.connect('clicked', () => {
             this.menu.close();
             Gio.AppInfo.launch_default_for_uri(`${BASE}/`, null);
         });
         header.add_child(this._status);
+        header.add_child(this._acctBtn);
         header.add_child(web);
         box.add_child(header);
 
@@ -412,6 +440,10 @@ class TalkerIndicator extends PanelMenu.Button {
             it.setOrnament(value === s.popup_style ? PopupMenu.Ornament.DOT : PopupMenu.Ornament.NONE);
         this._secLabel.text = `提示停留 ${s.toast_seconds} 秒`;
         this._copySwitch.setToggleState(!!s.auto_copy);
+        if (s.accounting_mode)
+            this._acctBtn.add_style_class_name('talker-acct-on');
+        else
+            this._acctBtn.remove_style_class_name('talker-acct-on');
     }
 
     _send() {
@@ -452,6 +484,10 @@ class TalkerIndicator extends PanelMenu.Button {
                 tag = m.delivered ? ' <span foreground="#46c37b">[pulled]</span>' : ' <span foreground="#e6b34a">[waiting]</span>';
             else if (m.copied)
                 tag = ' <span foreground="#46c37b">[copied]</span>';
+            if (m.account) {
+                const color = m.account.error ? '#e05252' : m.account.pending ? '#e6b34a' : '#46c37b';
+                tag += ` <span foreground="${color}">[${GLib.markup_escape_text(acctSummary(m.account), -1)}]</span>`;
+            }
             const dir = `<span foreground="${out ? '#6db3ff' : '#d6dde6'}">${GLib.markup_escape_text(m.from, -1)} -&gt; ${GLib.markup_escape_text(m.to, -1)}</span>`;
             const markup = `<span foreground="#98a3b0">${fmtTime(m.ts)}</span>  ${dir}${tag}: ${GLib.markup_escape_text(m.text, -1)}`;
             line.clutter_text.set_markup(markup);

@@ -1,4 +1,8 @@
 /* Terminal look: monospace on near-black, one line per message like `talker log`. */
+.talker-menu, .talker-menu.popup-menu-boxpointer {
+  background-color: #0f1216; border-color: #0f1216; border-width: 1px;
+  -arrow-background-color: #0f1216; -arrow-border-color: #0f1216;
+}
 .talker-panel { width: 34em; padding: 8px 10px; spacing: 6px; background-color: #0f1216; border-radius: 8px;
   font-family: 'Ubuntu Sans Mono', 'DejaVu Sans Mono', monospace; font-size: 0.95em; color: #d6dde6; }
 .talker-header { spacing: 8px; }
@@ -7,6 +11,12 @@
 .talker-open-web { padding: 1px 10px; border-radius: 4px; font-size: 0.85em; color: #d6dde6;
   background-color: #1b2027; border: 1px solid #2c333d; }
 .talker-open-web:hover, .talker-open-web:focus { background-color: #262c35; }
+.talker-acct-btn { padding: 1px 10px; border-radius: 4px; font-size: 0.85em; color: #98a3b0;
+  background-color: #1b2027; border: 1px solid #2c333d; }
+.talker-acct-btn:hover, .talker-acct-btn:focus { background-color: #262c35; }
+.talker-acct-btn.talker-acct-on { color: #0f1216; background-color: #46c37b; border-color: #46c37b;
+  font-weight: bold; }
+.talker-acct-btn.talker-acct-on:hover, .talker-acct-btn.talker-acct-on:focus { background-color: #5bd690; }
 .talker-scroll { height: 17em; }
 .talker-list { spacing: 4px; padding: 2px 14px 2px 2px; }
 .talker-empty { color: #98a3b0; text-align: left; padding: 1em 0; }

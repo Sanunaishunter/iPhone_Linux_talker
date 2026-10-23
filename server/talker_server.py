@@ -27,6 +27,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import accounting_bridge  # noqa: E402
 CONF_DIR = Path(os.environ.get("TALKER_CONF", Path.home() / ".config/iphone_linux_talker"))
 STATE_DIR = Path(os.environ.get("TALKER_STATE", Path.home() / ".local/state/iphone_linux_talker"))
 TOKEN_FILE = CONF_DIR / "token"
@@ -39,7 +41,8 @@ MAX_TEXT = 100_000
 LOCAL = "Ubuntu"
 REMOTE = "iPhone"
 
-DEFAULTS = {"toast_seconds": 3.0, "popup_style": "notification", "auto_copy": True, "history_limit": 50}
+DEFAULTS = {"toast_seconds": 3.0, "popup_style": "notification", "auto_copy": True, "history_limit": 50,
+            "accounting_mode": False}
 POPUP_STYLES = ("notification", "banner", "bar", "both", "off")  # bar = GNOME Shell extension top-bar popup
 
 TOKEN = ""
@@ -71,6 +74,8 @@ def clean_settings(raw):
         out["popup_style"] = raw["popup_style"]
     if isinstance(raw.get("auto_copy"), bool):
         out["auto_copy"] = raw["auto_copy"]
+    if isinstance(raw.get("accounting_mode"), bool):
+        out["accounting_mode"] = raw["accounting_mode"]
     return out
 
 
@@ -230,15 +235,36 @@ def copy_in_background(msg_id, text, tries=4):
     threading.Thread(target=job, daemon=True).start()
 
 
+def notify_text(msg):
+    """(title, body) for the system notification / GNOME bar toast."""
+    acct = msg.get("account")
+    if acct:
+        if acct.get("error"):
+            return "記帳失敗", html.escape(acct["error"])
+        parts = []
+        if acct.get("recorded"):
+            parts.append(f"✅ 已記帳 {acct['recorded']} 筆")
+        if acct.get("pending"):
+            parts.append(f"⚠️ 待審核 {acct['pending']} 筆")
+        if acct.get("memos"):
+            parts.append(f"📝 備忘 {acct['memos']} 筆")
+        if acct.get("skipped"):
+            parts.append(f"⏭ 重複已略過 {acct['skipped']} 筆")
+        return "記帳", "、".join(parts) if parts else "沒有可記錄的項目"
+    body = html.escape(msg["text"][:300] + ("…" if len(msg["text"]) > 300 else ""))
+    return f"{msg['from']} → {msg['to']}", body
+
+
 def desktop_notify(msg, settings):
     style = settings["popup_style"]
     # "bar" is drawn by the GNOME extension; fall back to a system notification if it is not running.
     if style not in ("notification", "both") and not (style == "bar" and STORE.bar_clients == 0):
         return
-    body = html.escape(msg["text"][:300] + ("…" if len(msg["text"]) > 300 else ""))
+    title, body = notify_text(msg)
     try:
         subprocess.Popen(["notify-send", "-t", str(int(settings["toast_seconds"] * 1000)),
-                          "-h", "string:transient:1", "--", f"{msg['from']} → {msg['to']}", body],
+                          "-i", "phone-symbolic",
+                          "-h", "string:transient:1", "--", title, body],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:
         pass
@@ -426,7 +452,11 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(text, str) or not text.strip() or len(text) > MAX_TEXT:
             return self._reply(400, "empty or too long\n")
         settings = STORE.state()["settings"]
-        msg = STORE.add(peer_name(self.client_address[0]), LOCAL, text, copied=False)
+        account = None
+        if settings["accounting_mode"] and accounting_bridge.looks_like_accounting(text):
+            account = accounting_bridge.ingest(text)
+        extra = {"account": account} if account else {}
+        msg = STORE.add(peer_name(self.client_address[0]), LOCAL, text, copied=False, **extra)
         desktop_notify(msg, settings)
         self._reply(200, "ok\n")
         if settings["auto_copy"]:

@@ -62,6 +62,7 @@ fi
 # ---- 2. program files, token, service ---------------------------------------
 step "Installing the service and the 'talker' command"
 install -Dm755 "$here/server/talker_server.py" "$app/talker_server.py"
+install -Dm644 "$here/server/accounting_bridge.py" "$app/accounting_bridge.py"
 install -Dm644 "$here/server/ui.html" "$app/ui.html"
 install -Dm755 "$here/cli/talker" ~/.local/bin/talker
 install -Dm644 "$here/systemd/iphone-linux-talker.service" "$unit"

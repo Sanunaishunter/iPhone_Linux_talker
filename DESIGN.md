@@ -47,3 +47,9 @@ Ubuntu → iPhone：
 - 只監聽 Tailscale IP，不對區網/公網開放
 - 固定 token，存放於 600 權限檔案
 - 不記錄剪貼簿內容到 log
+
+## Roadmap
+- [x] 網頁聊天介面（訊息紀錄 50 筆、SSE 即時更新、設定、可選提示方式）— 2026-10-24
+- [ ] GNOME Shell 擴充套件：頂端列圖示 + 滑出提示（真正的 always-on-top）+ 聊天面板，沿用同一組 API/SSE 與設定
+- [ ] 選配：ntfy 推播，讓 Ubuntu→iPhone 有手機通知
+- [ ] 螢幕鎖定時的剪貼簿行為測試

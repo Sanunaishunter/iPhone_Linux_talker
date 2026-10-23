@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Talker</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --text: #1c1e21; --muted: #6b7280; --line: #e3e5e8;
+    --in: #ffffff; --out: #2f6fed; --out-text: #ffffff; --accent: #2f6fed; --ok: #22a06b; --warn: #c27c0e;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a; --panel: #1d2026; --text: #e7e9ec; --muted: #8b93a1; --line: #2b2f37;
+      --in: #252932; --out: #3b7bff; --out-text: #ffffff; --accent: #5b92ff; --ok: #3ccf91; --warn: #e0a23a;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Noto Sans TC", sans-serif; }
+  #app { height: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; background: var(--panel); }
+  header { display: flex; align-items: center; gap: .6rem; padding: .7rem 1rem; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 1rem; margin: 0; font-weight: 650; flex: 1; }
+  .dot { width: .6rem; height: .6rem; border-radius: 50%; background: var(--warn); }
+  .dot.on { background: var(--ok); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .icon { background: none; border: 1px solid var(--line); border-radius: .5rem; padding: .25rem .6rem; color: var(--muted); }
+  .icon:hover { color: var(--text); border-color: var(--muted); }
+
+  #list { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .7rem; }
+  .empty { margin: auto; color: var(--muted); text-align: center; }
+  .msg { max-width: 82%; display: flex; flex-direction: column; gap: .2rem; }
+  .msg.out { align-self: flex-end; align-items: flex-end; }
+  .bubble { background: var(--in); border: 1px solid var(--line); padding: .5rem .75rem; border-radius: .9rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .out .bubble { background: var(--out); color: var(--out-text); border-color: transparent; }
+  .meta { font-size: .75rem; color: var(--muted); display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .meta .copy { background: none; border: none; padding: 0; color: var(--accent); font-size: .75rem; }
+  .pending { color: var(--warn); }
+  .done { color: var(--ok); }
+
+  form#composer { display: flex; gap: .5rem; padding: .7rem 1rem calc(.7rem + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+  textarea { flex: 1; resize: none; min-height: 2.6rem; max-height: 9rem; font: inherit; color: var(--text); background: var(--bg);
+             border: 1px solid var(--line); border-radius: .7rem; padding: .55rem .75rem; }
+  textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  #send { background: var(--accent); color: #fff; border: none; border-radius: .7rem; padding: 0 1.1rem; font-weight: 600; }
+  #send:disabled { opacity: .5; cursor: default; }
+
+  #toast { position: fixed; top: calc(.6rem + env(safe-area-inset-top, 0px)); left: 50%; transform: translate(-50%, -140%);
+           transition: transform .25s ease; width: min(92vw, 560px); background: #111827; color: #f9fafb; border-radius: .8rem;
+           padding: .6rem .9rem; box-shadow: 0 8px 28px rgba(0,0,0,.35); z-index: 10; cursor: pointer; }
+  #toast.show { transform: translate(-50%, 0); }
+  #toast b { display: block; font-size: .75rem; color: #9ca3af; font-weight: 600; margin-bottom: .1rem; }
+  #toast span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+  #settings { position: absolute; right: max(0px, calc(50% - 380px)); top: 3.1rem; width: min(100%, 300px); background: var(--panel);
+              border: 1px solid var(--line); border-radius: .8rem; padding: .9rem; box-shadow: 0 8px 28px rgba(0,0,0,.2); z-index: 5; }
+  #settings label { display: flex; flex-direction: column; gap: .25rem; margin-bottom: .8rem; font-size: .85rem; color: var(--muted); }
+  #settings label.row { flex-direction: row; align-items: center; justify-content: space-between; }
+  input[type=number], input[type=password], input[type=text], select { font: inherit; color: var(--text); background: var(--bg);
+              border: 1px solid var(--line); border-radius: .5rem; padding: .35rem .5rem; }
+  .danger { background: none; border: 1px solid var(--line); border-radius: .5rem; padding: .35rem .6rem; color: #d64545; width: 100%; }
+  #login { margin: auto; display: flex; flex-direction: column; gap: .7rem; width: min(90%, 320px); }
+  #login p { color: var(--muted); margin: 0; }
+  #login button { background: var(--accent); color: #fff; border: none; border-radius: .6rem; padding: .55rem; font-weight: 600; }
+  #loginerr { color: #d64545; min-height: 1.2em; font-size: .85rem; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="dot" id="dot" title="連線狀態"></span>
+    <h1>Talker</h1>
+    <button class="icon" id="gear" type="button" aria-label="設定">設定</button>
+  </header>
+
+  <div id="settings" hidden>
+    <label>彈出提示方式
+      <select id="s-style">
+        <option value="notification">系統通知（桌面右上）</option>
+        <option value="banner">頁面頂端橫條</option>
+        <option value="both">兩者都要</option>
+        <option value="off">不提示</option>
+      </select>
+    </label>
+    <label>提示停留秒數
+      <input id="s-sec" type="number" min="0.5" max="60" step="0.5">
+    </label>
+    <label class="row">收到後自動複製到剪貼簿
+      <input id="s-copy" type="checkbox">
+    </label>
+    <button class="danger" id="clear" type="button">清除全部紀錄</button>
+  </div>
+
+  <div id="list" aria-live="polite"></div>
+
+  <div id="login" hidden>
+    <p>這台裝置需要先登入。請貼上 token（<code>talker token</code>）。</p>
+    <input id="tok" type="password" autocomplete="off" placeholder="token">
+    <div id="loginerr"></div>
+    <button id="loginbtn" type="button">登入</button>
+  </div>
+
+  <form id="composer">
+    <textarea id="text" rows="1" placeholder="輸入要傳給 iPhone 的文字（Enter 傳送，Shift+Enter 換行）"></textarea>
+    <button id="send" type="submit">傳送</button>
+  </form>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+let state = { messages: [], settings: { toast_seconds: 3, popup_style: "notification", auto_copy: true }, me: "Ubuntu" };
+let unread = 0, toastTimer = null, source = null, clearArmed = false;
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (r.status === 401) { showLogin(); throw new Error("unauthorized"); }
+  return r.json();
+}
+
+function fmtTime(ts) {
+  const d = new Date(ts * 1000), now = new Date();
+  const t = d.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toDateString() === now.toDateString() ? t : `${d.getMonth() + 1}/${d.getDate()} ${t}`;
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return; } catch (_) { /* not a secure context: fall back */ }
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+}
+
+function render() {
+  const list = $("#list");
+  const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+  list.replaceChildren();
+  if (!state.messages.length) {
+    const e = document.createElement("div"); e.className = "empty";
+    e.textContent = "還沒有訊息。iPhone 傳來的和你傳出的都會顯示在這裡。";
+    list.append(e);
+  }
+  for (const m of state.messages) {
+    const out = m.to !== state.me;  // addressed to the other device
+    const wrap = document.createElement("div"); wrap.className = "msg " + (out ? "out" : "in");
+    const bubble = document.createElement("div"); bubble.className = "bubble"; bubble.textContent = m.text;
+    const meta = document.createElement("div"); meta.className = "meta";
+    const who = document.createElement("span"); who.textContent = `${m.from} → ${m.to} · ${fmtTime(m.ts)}`;
+    meta.append(who);
+    if (out) {
+      const s = document.createElement("span");
+      s.className = m.delivered ? "done" : "pending";
+      s.textContent = m.delivered ? "iPhone 已取走" : "等待 iPhone 取走";
+      meta.append(s);
+    } else if (m.copied) {
+      const s = document.createElement("span"); s.className = "done"; s.textContent = "已複製到剪貼簿"; meta.append(s);
+    }
+    const c = document.createElement("button"); c.type = "button"; c.className = "copy"; c.textContent = "複製";
+    c.onclick = async () => { await copyText(m.text); c.textContent = "已複製"; setTimeout(() => (c.textContent = "複製"), 1200); };
+    meta.append(c);
+    wrap.append(bubble, meta);
+    list.append(wrap);
+  }
+  if (nearBottom) list.scrollTop = list.scrollHeight;
+  const s = state.settings;
+  $("#s-style").value = s.popup_style; $("#s-copy").checked = !!s.auto_copy;
+  if (document.activeElement !== $("#s-sec")) $("#s-sec").value = s.toast_seconds;
+}
+
+function toast(m) {
+  const style = state.settings.popup_style;
+  if (style !== "banner" && style !== "both") return;
+  const t = $("#toast"); t.replaceChildren();
+  const b = document.createElement("b"); b.textContent = `${m.from} → ${m.to}`;
+  const s = document.createElement("span"); s.textContent = m.text;
+  t.append(b, s); t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), state.settings.toast_seconds * 1000);
+}
+$("#toast").onclick = () => $("#toast").classList.remove("show");
+
+function bumpTitle() {
+  document.title = unread ? `(${unread}) Talker` : "Talker";
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { unread = 0; bumpTitle(); } });
+
+function showLogin() {
+  $("#login").hidden = false; $("#composer").hidden = true; $("#list").hidden = true;
+}
+
+async function reload() {
+  state = await api("/api/state");
+  $("#login").hidden = true; $("#composer").hidden = false; $("#list").hidden = false;
+  render();
+}
+
+function connect() {
+  if (source) source.close();
+  source = new EventSource("/api/events");
+  source.onopen = () => { $("#dot").classList.add("on"); reload().catch(() => {}); };
+  source.onerror = () => $("#dot").classList.remove("on");
+  source.addEventListener("msg", (e) => {
+    const m = JSON.parse(e.data);
+    if (!state.messages.some((x) => x.id === m.id)) state.messages.push(m);
+    render();
+    if (m.to === state.me) { toast(m); if (document.hidden) { unread++; bumpTitle(); } }
+  });
+  source.addEventListener("refresh", () => reload().catch(() => {}));
+}
+
+// composer
+const ta = $("#text");
+function autosize() { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 2, 144) + "px"; }
+ta.addEventListener("input", autosize);
+ta.addEventListener("keydown", (e) => {
+  // isComposing: Enter while choosing Chinese/Japanese IME candidates must not send.
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); $("#composer").requestSubmit(); }
+});
+$("#composer").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = ta.value;
+  if (!text.trim()) return;
+  $("#send").disabled = true;
+  try {
+    const m = await api("/api/send", { text });
+    if (!state.messages.some((x) => x.id === m.id)) state.messages.push(m);
+    ta.value = ""; autosize(); render();
+    $("#list").scrollTop = $("#list").scrollHeight;
+  } catch (_) { /* login screen already shown on 401 */ }
+  $("#send").disabled = false; ta.focus();
+});
+
+// settings
+$("#gear").onclick = () => { $("#settings").hidden = !$("#settings").hidden; };
+async function saveSettings() {
+  state.settings = await api("/api/settings", {
+    popup_style: $("#s-style").value, toast_seconds: parseFloat($("#s-sec").value) || 3, auto_copy: $("#s-copy").checked });
+  render();
+}
+for (const id of ["#s-style", "#s-sec", "#s-copy"]) $(id).addEventListener("change", saveSettings);
+$("#clear").onclick = async () => {
+  const b = $("#clear");
+  if (!clearArmed) { clearArmed = true; b.textContent = "再按一次確認清除"; setTimeout(() => { clearArmed = false; b.textContent = "清除全部紀錄"; }, 3000); return; }
+  clearArmed = false; b.textContent = "清除全部紀錄";
+  await api("/api/clear", {});
+};
+
+// login (remote devices; the local browser is logged in automatically)
+async function login() {
+  const r = await fetch("/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: $("#tok").value }) });
+  if (r.ok) { $("#tok").value = ""; $("#loginerr").textContent = ""; await reload(); connect(); }
+  else $("#loginerr").textContent = "token 不正確";
+}
+$("#loginbtn").onclick = login;
+$("#tok").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+
+reload().then(connect).catch(() => {});
+</script>
+</body>
+</html>

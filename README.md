@@ -1,0 +1,37 @@
+# iPhone_Linux_talker
+
+A tiny text relay between an iPhone and an Ubuntu (GNOME Wayland) desktop, like a small Universal Clipboard.
+iOS Shortcuts talk to a local HTTP service over Tailscale; a chat page on the desktop shows who sent what and
+lets you type messages to the phone.
+
+```
+iPhone Shortcut --POST /push--> server --> wl-copy + notification + chat history
+iPhone Shortcut <--GET /pull--- server <-- chat page / `talker send`
+```
+
+## Install
+Needs: Ubuntu with Wayland, `wl-clipboard`, Tailscale on both devices.
+
+    bash install.sh                                       # installs ~/.local/bin/talker + a systemd user service
+    sudo ufw allow in on tailscale0 to any port 8787 proto tcp   # if ufw is active
+    talker info                                           # URLs and token for the Shortcuts
+
+Then build the two Shortcuts: see [shortcuts/README.md](shortcuts/README.md).
+
+## Use
+- **iPhone -> Ubuntu**: run the "Sent To Ubuntu" Shortcut (e.g. Back Tap). The text lands in the Ubuntu clipboard.
+- **Ubuntu -> iPhone**: `talker send [text]` or type in the chat page; run "Get from Ubuntu" on the phone to pull
+  everything not yet picked up (the page shows "waiting" / "picked up").
+- **Chat page**: `talker ui` (http://127.0.0.1:8787/). Last 50 messages, kept locally in
+  `~/.local/state/iphone_linux_talker/messages.json` (mode 600). Settings (gear): popup style
+  (system notification / in-page banner / both / off), popup seconds, auto-copy. Other devices can open the page
+  over Tailscale and sign in with the token.
+- `talker log`, `talker clear`, `talker token`.
+
+## Security notes
+- Listens only on the Tailscale IP and 127.0.0.1. A token is required for `/push` and `/pull`.
+- The web page signs the local browser in with an HttpOnly SameSite=Strict cookie; web API writes must be JSON and
+  the Host header must be an IP, localhost, or a tailnet name (DNS-rebinding guard).
+- Request logs never contain message text or the token.
+
+See [DESIGN.md](DESIGN.md) for the design notes and roadmap.

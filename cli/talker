@@ -1,24 +1,28 @@
 #!/usr/bin/env python3
-"""talker: Ubuntu-side helper for iPhone_Linux_talker.
+"""talker: Ubuntu-side helper for iPhone_Linux_talker (talks to the local server).
 
-  talker send [text]   queue text for the iPhone to pull (arg, stdin, or current clipboard)
-  talker show          print what is queued
-  talker clear         empty the queue
+  talker send [text]   send text to the iPhone (arg, stdin, or current clipboard)
+  talker log           print recent messages
+  talker clear         clear the message history
+  talker ui            open the chat page in the browser
   talker init          create the token if missing
-  talker token         print the token (for the iPhone Shortcut)
-  talker info          print the URL values to put in the iPhone Shortcut
+  talker token         print the token
+  talker info          print the URLs / header for the iPhone Shortcuts
 """
+import json
 import os
 import secrets
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 CONF_DIR = Path(os.environ.get("TALKER_CONF", Path.home() / ".config/iphone_linux_talker"))
-STATE_DIR = Path(os.environ.get("TALKER_STATE", Path.home() / ".local/state/iphone_linux_talker"))
 TOKEN_FILE = CONF_DIR / "token"
-OUTBOX = STATE_DIR / "outbox.txt"
 PORT = os.environ.get("TALKER_PORT", "8787")
+BASE = f"http://127.0.0.1:{PORT}"
 
 
 def notify(msg):
@@ -35,6 +39,18 @@ def init():
         print(f"created {TOKEN_FILE}")
 
 
+def call(path, body=None):
+    req = urllib.request.Request(BASE + path, headers={"X-Token": TOKEN_FILE.read_text().strip()},
+                                 data=None if body is None else json.dumps(body).encode(),
+                                 method="GET" if body is None else "POST")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(req, timeout=5) as r:
+            return json.loads(r.read())
+    except (urllib.error.URLError, OSError) as e:
+        sys.exit(f"cannot reach the talker service ({e}); try: systemctl --user status iphone-linux-talker")
+
+
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "send"
     if cmd == "init":
@@ -45,13 +61,18 @@ def main():
         ip = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True).stdout.split()
         host = ip[0] if ip else "<tailscale-ip>"
         print(f"Push URL: http://{host}:{PORT}/push\nPull URL: http://{host}:{PORT}/pull\n"
-              f"Header:   Authorization: Bearer {TOKEN_FILE.read_text().strip()}")
+              f"Header:   X-Token: {TOKEN_FILE.read_text().strip()}\nWeb UI:   http://127.0.0.1:{PORT}/")
         return
-    if cmd == "show":
-        return sys.stdout.write(OUTBOX.read_text(encoding="utf-8") if OUTBOX.exists() else "")
+    if cmd == "ui":
+        return subprocess.run(["xdg-open", f"{BASE}/"])
+    if cmd == "log":
+        for m in call("/api/state")["messages"]:
+            when = time.strftime("%m-%d %H:%M", time.localtime(m["ts"]))
+            note = "" if m["to"] != "iPhone" else (" [pulled]" if m.get("delivered") else " [waiting]")
+            print(f"{when}  {m['from']} -> {m['to']}{note}: {m['text']}")
+        return
     if cmd == "clear":
-        OUTBOX.unlink(missing_ok=True)
-        return
+        return call("/api/clear", {})
     if cmd == "send":
         args = sys.argv[2:]
         if args:
@@ -60,12 +81,9 @@ def main():
             text = sys.stdin.read()
         else:
             text = subprocess.run(["wl-paste", "--no-newline"], capture_output=True, text=True).stdout
-        if not text:
+        if not text.strip():
             sys.exit("nothing to send")
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = OUTBOX.with_suffix(".tmp")
-        tmp.write_text(text, encoding="utf-8")
-        tmp.replace(OUTBOX)
+        call("/api/send", {"text": text})
         notify(f"已排入 {len(text)} 字，iPhone 執行 Pull 捷徑即可取得")
         return
     sys.exit(__doc__)

@@ -1,0 +1,13 @@
+[Unit]
+Description=iPhone_Linux_talker clipboard relay
+After=graphical-session.target network-online.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/share/iphone_linux_talker/talker_server.py
+Environment=WAYLAND_DISPLAY=wayland-0
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target

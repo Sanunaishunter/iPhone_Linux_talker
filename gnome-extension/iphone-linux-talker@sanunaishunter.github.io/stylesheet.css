@@ -1,27 +1,32 @@
-.talker-panel { width: 26em; padding: 4px 2px; spacing: 8px; }
+/* Terminal look: monospace on near-black, one line per message like `talker log`. */
+.talker-panel { width: 34em; padding: 8px 10px; spacing: 6px; background-color: #0f1216; border-radius: 8px;
+  font-family: 'Ubuntu Sans Mono', 'DejaVu Sans Mono', monospace; font-size: 0.95em; color: #d6dde6; }
 .talker-header { spacing: 8px; }
-.talker-status { font-size: 0.85em; color: rgba(255,255,255,0.6); }
-.talker-status-on { color: #3ccf91; }
-.talker-open-web { padding: 2px 10px; border-radius: 9px; font-size: 0.85em; }
+.talker-status { font-size: 0.85em; color: #98a3b0; }
+.talker-status-on { color: #46c37b; }
+.talker-open-web { padding: 1px 10px; border-radius: 4px; font-size: 0.85em; color: #d6dde6;
+  background-color: #1b2027; border: 1px solid #2c333d; }
+.talker-open-web:hover, .talker-open-web:focus { background-color: #262c35; }
 .talker-scroll { height: 17em; }
-.talker-list { spacing: 8px; padding: 2px 16px 2px 4px; }
-.talker-empty { color: rgba(255,255,255,0.55); text-align: center; padding: 3em 1em; }
-.talker-msg { spacing: 2px; }
-.talker-bubble { padding: 6px 11px; border-radius: 14px; max-width: 19em; background-color: rgba(255,255,255,0.14); color: #f4f5f7; }
-.talker-out .talker-bubble { background-color: #3b7bff; color: #ffffff; }
-.talker-meta { font-size: 0.75em; color: rgba(255,255,255,0.55); padding: 0 4px; }
-.talker-meta-pending { color: #e0a23a; }
-.talker-meta-done { color: #3ccf91; }
-.talker-compose { spacing: 6px; }
-.talker-entry { min-height: 2em; }
-.talker-send { padding: 4px 14px; border-radius: 9px; background-color: #3b7bff; color: #ffffff; font-weight: bold; }
-.talker-send:hover, .talker-send:focus { background-color: #5b92ff; }
-.talker-step { padding: 2px 12px; border-radius: 9px; }
+.talker-list { spacing: 4px; padding: 2px 14px 2px 2px; }
+.talker-empty { color: #98a3b0; text-align: left; padding: 1em 0; }
+.talker-line { color: #d6dde6; padding: 1px 0; }
+.talker-line:hover { background-color: #1b2027; }
+.talker-compose { spacing: 8px; padding-top: 4px; border-top: 1px solid #262c35; }
+.talker-prompt { color: #46c37b; font-weight: bold; }
+.talker-entry { min-height: 1.8em; background-color: transparent; color: #d6dde6; caret-color: #d6dde6;
+  border: none; border-radius: 0; box-shadow: none; padding: 0; }
+.talker-entry:focus { background-color: transparent; border: none; box-shadow: none; }
+.talker-send { padding: 2px 12px; border-radius: 4px; background-color: #1b2027; color: #46c37b;
+  border: 1px solid #2c333d; font-weight: bold; }
+.talker-send:hover, .talker-send:focus { background-color: #262c35; }
+.talker-step { padding: 2px 12px; border-radius: 6px; }
 .talker-unread { color: #5b92ff; }
 
 .talker-toast {
-  background-color: rgba(24,26,32,0.96); color: #f4f5f7; border-radius: 14px; padding: 10px 16px;
-  border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.5); spacing: 2px;
+  background-color: rgba(15,18,22,0.97); color: #d6dde6; border-radius: 8px; padding: 10px 16px;
+  border: 1px solid #2c333d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); spacing: 2px;
+  font-family: 'Ubuntu Sans Mono', 'DejaVu Sans Mono', monospace;
 }
-.talker-toast-title { font-size: 0.8em; font-weight: bold; color: #8fb2ff; }
-.talker-toast-body { font-size: 1.05em; }
+.talker-toast-title { font-size: 0.85em; font-weight: bold; color: #46c37b; }
+.talker-toast-body { font-size: 1em; }

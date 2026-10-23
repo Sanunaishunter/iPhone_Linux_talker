@@ -221,7 +221,7 @@ class Toast {
 
     show(msg, seconds) {
         this._seconds = seconds;
-        this._title.text = `${msg.from} → ${msg.to}`;
+        this._title.text = `${msg.from} -> ${msg.to}`;
         const t = msg.text.length > TOAST_MAX_CHARS ? `${msg.text.slice(0, TOAST_MAX_CHARS)}…` : msg.text;
         this._body.text = t;
 
@@ -309,9 +309,9 @@ class TalkerIndicator extends PanelMenu.Button {
         item.add_child(box);
 
         const header = new St.BoxLayout({style_class: 'talker-header'});
-        this._status = new St.Label({style_class: 'talker-status', text: '連線中…', x_expand: true,
+        this._status = new St.Label({style_class: 'talker-status', text: '… connecting', x_expand: true,
             y_align: Clutter.ActorAlign.CENTER});
-        const web = new St.Button({label: '網頁版', style_class: 'button talker-open-web', can_focus: true});
+        const web = new St.Button({label: 'web', style_class: 'button talker-open-web', can_focus: true});
         web.connect('clicked', () => {
             this.menu.close();
             Gio.AppInfo.launch_default_for_uri(`${BASE}/`, null);
@@ -329,11 +329,14 @@ class TalkerIndicator extends PanelMenu.Button {
         box.add_child(this._scroll);
 
         const compose = new St.BoxLayout({style_class: 'talker-compose'});
-        this._entry = new St.Entry({hint_text: '傳給 iPhone…（Enter 傳送）', can_focus: true, x_expand: true,
+        const prompt = new St.Label({text: '$ talker send', style_class: 'talker-prompt',
+            y_align: Clutter.ActorAlign.CENTER});
+        this._entry = new St.Entry({hint_text: '…', can_focus: true, x_expand: true,
             style_class: 'talker-entry'});
         this._entry.clutter_text.connect('activate', () => this._send());
-        const send = new St.Button({label: '傳送', style_class: 'button talker-send', can_focus: true});
+        const send = new St.Button({label: '⏎', style_class: 'button talker-send', can_focus: true});
         send.connect('clicked', () => this._send());
+        compose.add_child(prompt);
         compose.add_child(this._entry);
         compose.add_child(send);
         box.add_child(compose);
@@ -433,39 +436,31 @@ class TalkerIndicator extends PanelMenu.Button {
         const {messages, me} = this._client.state;
         if (!messages.length) {
             this._list.add_child(new St.Label({style_class: 'talker-empty',
-                text: '還沒有訊息。\niPhone 傳來的和你傳出的都會顯示在這裡。'}));
+                text: '# no messages yet\n# anything from the iPhone or sent from here shows up as a line'}));
             return;
         }
+        // One terminal-style line per message, like `talker log`: time  from -> to [status]: text
         for (const m of messages) {
             const out = m.to !== me;
-            const row = new St.BoxLayout({
-                style_class: `talker-msg ${out ? 'talker-out' : 'talker-in'}`, vertical: true,
-                x_align: out ? Clutter.ActorAlign.END : Clutter.ActorAlign.START,
-            });
-            const bubble = new St.Label({style_class: 'talker-bubble', text: m.text, reactive: true,
-                track_hover: true});
-            bubble.clutter_text.set_line_wrap(true);
-            bubble.clutter_text.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
-            bubble.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+            const line = new St.Label({style_class: 'talker-line', reactive: true, track_hover: true});
+            line.clutter_text.set_line_wrap(true);
+            line.clutter_text.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
+            line.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
 
-            let status = '';
-            let cls = 'talker-meta';
-            if (out) {
-                status = m.delivered ? ' · iPhone 已取走' : ' · 等待 iPhone 取走';
-                cls += m.delivered ? ' talker-meta-done' : ' talker-meta-pending';
-            } else if (m.copied) {
-                status = ' · 已複製';
-                cls += ' talker-meta-done';
-            }
-            const meta = new St.Label({style_class: cls, text: `${m.from} → ${m.to} · ${fmtTime(m.ts)}${status}`});
-            bubble.connect('button-press-event', () => {
+            let tag = '';
+            if (out)
+                tag = m.delivered ? ' <span foreground="#46c37b">[pulled]</span>' : ' <span foreground="#e6b34a">[waiting]</span>';
+            else if (m.copied)
+                tag = ' <span foreground="#46c37b">[copied]</span>';
+            const dir = `<span foreground="${out ? '#6db3ff' : '#d6dde6'}">${GLib.markup_escape_text(m.from, -1)} -&gt; ${GLib.markup_escape_text(m.to, -1)}</span>`;
+            const markup = `<span foreground="#98a3b0">${fmtTime(m.ts)}</span>  ${dir}${tag}: ${GLib.markup_escape_text(m.text, -1)}`;
+            line.clutter_text.set_markup(markup);
+            line.connect('button-press-event', () => {
                 St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, m.text);
-                meta.text = '已複製這則訊息';
+                line.clutter_text.set_markup('<span foreground="#98a3b0"># copied this message</span>');
                 return Clutter.EVENT_STOP;
             });
-            row.add_child(bubble);
-            row.add_child(meta);
-            this._list.add_child(row);
+            this._list.add_child(line);
         }
         // Scroll to the newest message once the layout has settled.
         this._scrollIdle = GLib.idle_add(GLib.PRIORITY_LOW, () => {
@@ -487,7 +482,7 @@ class TalkerIndicator extends PanelMenu.Button {
 
     setConnected(on) {
         this._connected = on;
-        this._status.text = on ? '已連線' : '無法連線到 talker 服務';
+        this._status.text = on ? '● connected' : '○ cannot reach the talker service';
         if (on)
             this._status.add_style_class_name('talker-status-on');
         else

@@ -10,13 +10,16 @@ iPhone Shortcut <--GET /pull--- server <-- chat page / `talker send`
 ```
 
 ## Install
-Needs: Ubuntu with Wayland, `wl-clipboard`, Tailscale on both devices.
+Ubuntu with GNOME on Wayland, and Tailscale on the Ubuntu machine and the iPhone. Then one command:
 
-    bash install.sh                                       # installs ~/.local/bin/talker + a systemd user service
-    sudo ufw allow in on tailscale0 to any port 8787 proto tcp   # if ufw is active
-    talker info                                           # URLs and token for the Shortcuts
+    ./install.sh
 
-Then build the two Shortcuts: see [shortcuts/README.md](shortcuts/README.md).
+It installs the missing packages (`wl-clipboard`, `libnotify-bin`, `qrencode`), the server as a systemd user service,
+the `talker` command, the ufw rule for `tailscale0`, and the GNOME top-bar extension, then prints the URLs and token
+(plus a QR code of the token) for the Shortcuts. Safe to re-run to update. The top-bar icon appears after you log out
+and back in. Options: `--no-extension`, `--uninstall`, `--purge` (also deletes the token and history).
+
+Then build the two Shortcuts: see [shortcuts/README.md](shortcuts/README.md). `talker info` reprints the URLs and token.
 
 ## Use
 - **iPhone -> Ubuntu**: run the "Sent To Ubuntu" Shortcut (e.g. Back Tap). The text lands in the Ubuntu clipboard.
@@ -34,7 +37,7 @@ unread messages, and in popup style **桌面頂端列橫條 (bar)** slides a pop
 number of seconds, above all windows, including fullscreen. Hover keeps it open; click opens the chat.
 If the extension is not running, the `bar` style falls back to a normal system notification.
 
-    bash install-extension.sh     # then log out and back in (Wayland only loads new/changed extensions at login)
+    ./install.sh                  # also installs the extension; log out and back in afterwards (Wayland loads new/changed extensions at login)
 
 `tools/` has an isolated headless GNOME Shell + a screenshot/input harness for testing the extension without
 logging out (see the comments in `tools/nested-shell.sh`).

@@ -123,6 +123,17 @@ class Store:
             self.broadcast("refresh", {})
         return "\n".join(m["text"] for m in pending)
 
+    def mark_copied(self, msg_id):
+        with self.lock:
+            for m in self.messages:
+                if m["id"] == msg_id:
+                    m["copied"] = True
+                    self._save_messages()
+                    break
+            else:
+                return
+        self.broadcast("refresh", {})
+
     def clear(self):
         with self.lock:
             self.messages = []
@@ -180,13 +191,43 @@ def peer_name(ip):
     return _peers["map"].get(ip) or ip
 
 
-def set_clipboard(text):
-    # wl-copy forks into the background to serve the selection, so only stdin is piped.
-    p = subprocess.Popen(["wl-copy"], stdin=subprocess.PIPE,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    p.stdin.write(text.encode("utf-8"))
-    p.stdin.close()
-    return p.wait(timeout=5) == 0
+def set_clipboard(text, timeout=4):
+    # wl-copy forks into the background to serve the selection, so only stdin is piped. GNOME has no data-control
+    # protocol, so wl-copy needs a focused helper window and can stall for seconds: never wait on it forever.
+    try:
+        p = subprocess.Popen(["wl-copy"], stdin=subprocess.PIPE,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return False
+    try:
+        p.stdin.write(text.encode("utf-8"))
+        p.stdin.close()
+        return p.wait(timeout=timeout) == 0
+    except (OSError, subprocess.TimeoutExpired):
+        p.kill()
+        p.wait()
+        return False
+
+
+_copy = {"lock": threading.Lock(), "seq": 0}
+
+
+def copy_in_background(msg_id, text, tries=4):
+    """Copy off the request thread so /push answers at once; only the newest push may win the clipboard."""
+    _copy["seq"] += 1
+    seq = _copy["seq"]
+
+    def job():
+        with _copy["lock"]:
+            for attempt in range(tries):
+                if seq != _copy["seq"]:
+                    return  # a newer message superseded this one
+                if set_clipboard(text):
+                    return STORE.mark_copied(msg_id)
+                log(f"wl-copy failed or timed out (attempt {attempt + 1}/{tries})")
+                time.sleep(0.5)
+
+    threading.Thread(target=job, daemon=True).start()
 
 
 def desktop_notify(msg, settings):
@@ -385,10 +426,11 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(text, str) or not text.strip() or len(text) > MAX_TEXT:
             return self._reply(400, "empty or too long\n")
         settings = STORE.state()["settings"]
-        copied = settings["auto_copy"] and set_clipboard(text)
-        msg = STORE.add(peer_name(self.client_address[0]), LOCAL, text, copied=bool(copied))
+        msg = STORE.add(peer_name(self.client_address[0]), LOCAL, text, copied=False)
         desktop_notify(msg, settings)
         self._reply(200, "ok\n")
+        if settings["auto_copy"]:
+            copy_in_background(msg["id"], text)
 
 
 def serve(addr):

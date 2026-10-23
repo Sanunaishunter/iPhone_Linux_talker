@@ -1,0 +1,27 @@
+.talker-panel { width: 26em; padding: 4px 2px; spacing: 8px; }
+.talker-header { spacing: 8px; }
+.talker-status { font-size: 0.85em; color: rgba(255,255,255,0.6); }
+.talker-status-on { color: #3ccf91; }
+.talker-open-web { padding: 2px 10px; border-radius: 9px; font-size: 0.85em; }
+.talker-scroll { height: 17em; }
+.talker-list { spacing: 8px; padding: 2px 16px 2px 4px; }
+.talker-empty { color: rgba(255,255,255,0.55); text-align: center; padding: 3em 1em; }
+.talker-msg { spacing: 2px; }
+.talker-bubble { padding: 6px 11px; border-radius: 14px; max-width: 19em; background-color: rgba(255,255,255,0.14); color: #f4f5f7; }
+.talker-out .talker-bubble { background-color: #3b7bff; color: #ffffff; }
+.talker-meta { font-size: 0.75em; color: rgba(255,255,255,0.55); padding: 0 4px; }
+.talker-meta-pending { color: #e0a23a; }
+.talker-meta-done { color: #3ccf91; }
+.talker-compose { spacing: 6px; }
+.talker-entry { min-height: 2em; }
+.talker-send { padding: 4px 14px; border-radius: 9px; background-color: #3b7bff; color: #ffffff; font-weight: bold; }
+.talker-send:hover, .talker-send:focus { background-color: #5b92ff; }
+.talker-step { padding: 2px 12px; border-radius: 9px; }
+.talker-unread { color: #5b92ff; }
+
+.talker-toast {
+  background-color: rgba(24,26,32,0.96); color: #f4f5f7; border-radius: 14px; padding: 10px 16px;
+  border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.5); spacing: 2px;
+}
+.talker-toast-title { font-size: 0.8em; font-weight: bold; color: #8fb2ff; }
+.talker-toast-body { font-size: 1.05em; }

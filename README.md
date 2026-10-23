@@ -28,6 +28,17 @@ Then build the two Shortcuts: see [shortcuts/README.md](shortcuts/README.md).
   over Tailscale and sign in with the token.
 - `talker log`, `talker clear`, `talker token`.
 
+## GNOME top-bar extension (optional)
+A phone icon in the top bar opens the chat (history, type + Enter to send, settings), turns blue when there are
+unread messages, and in popup style **桌面頂端列橫條 (bar)** slides a popup in under the top bar for the configured
+number of seconds, above all windows, including fullscreen. Hover keeps it open; click opens the chat.
+If the extension is not running, the `bar` style falls back to a normal system notification.
+
+    bash install-extension.sh     # then log out and back in (Wayland only loads new/changed extensions at login)
+
+`tools/` has an isolated headless GNOME Shell + a screenshot/input harness for testing the extension without
+logging out (see the comments in `tools/nested-shell.sh`).
+
 ## Security notes
 - Listens only on the Tailscale IP and 127.0.0.1. A token is required for `/push` and `/pull`.
 - The web page signs the local browser in with an HttpOnly SameSite=Strict cookie; web API writes must be JSON and

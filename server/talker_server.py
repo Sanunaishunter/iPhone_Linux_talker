@@ -40,7 +40,7 @@ LOCAL = "Ubuntu"
 REMOTE = "iPhone"
 
 DEFAULTS = {"toast_seconds": 3.0, "popup_style": "notification", "auto_copy": True, "history_limit": 50}
-POPUP_STYLES = ("notification", "banner", "both", "off")
+POPUP_STYLES = ("notification", "banner", "bar", "both", "off")  # bar = GNOME Shell extension top-bar popup
 
 TOKEN = ""
 
@@ -80,6 +80,7 @@ class Store:
     def __init__(self):
         self.lock = threading.Lock()
         self.subs = set()
+        self.bar_clients = 0  # connected GNOME top-bar extensions (?client=bar)
         self.settings = dict(DEFAULTS)
         self.messages = []
         self.next_id = 1
@@ -189,7 +190,9 @@ def set_clipboard(text):
 
 
 def desktop_notify(msg, settings):
-    if settings["popup_style"] not in ("notification", "both"):
+    style = settings["popup_style"]
+    # "bar" is drawn by the GNOME extension; fall back to a system notification if it is not running.
+    if style not in ("notification", "both") and not (style == "bar" and STORE.bar_clients == 0):
         return
     body = html.escape(msg["text"][:300] + ("…" if len(msg["text"]) > 300 else ""))
     try:
@@ -305,6 +308,9 @@ class Handler(BaseHTTPRequestHandler):
     def _events(self):
         q = queue.Queue()
         STORE.subs.add(q)
+        is_bar = parse_qs(urlsplit(self.path).query).get("client") == ["bar"]
+        if is_bar:
+            STORE.bar_clients += 1
         self.close_connection = True
         try:
             self.send_response(200)
@@ -325,6 +331,8 @@ class Handler(BaseHTTPRequestHandler):
             pass
         finally:
             STORE.subs.discard(q)
+            if is_bar:
+                STORE.bar_clients -= 1
 
     # ---- POST ----------------------------------------------------------
     def do_POST(self):

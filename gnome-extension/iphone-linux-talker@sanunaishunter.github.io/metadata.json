@@ -1,0 +1,7 @@
+{
+  "uuid": "iphone-linux-talker@sanunaishunter.github.io",
+  "name": "iPhone Linux Talker",
+  "description": "Top-bar chat and always-on-top popups for the iPhone_Linux_talker relay. Requires the talker service (127.0.0.1:8787).",
+  "shell-version": ["50"],
+  "url": "https://github.com/Sanunaishunter/iPhone_Linux_talker"
+}
